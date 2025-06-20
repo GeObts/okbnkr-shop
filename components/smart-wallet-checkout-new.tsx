@@ -20,6 +20,13 @@ interface SmartWalletCheckoutProps {
 }
 
 export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWalletCheckoutProps) {
+  // DEBUG: Log product data immediately
+  console.log("DEBUG product data →", product)
+
+  // TESTING: Temporarily set price to 0.05 USDC
+  product.priceUSDC = 0.05
+  console.log("DEBUG after setting test price →", product)
+
   const { address, isConnected } = useAccount()
   const { sendCalls } = useSendCalls()
 
@@ -68,10 +75,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       console.log("Product priceUSDC:", product.priceUSDC, "Type:", typeof product.priceUSDC)
       console.log("Amount:", product.priceUSDC, "USDC")
 
-      // Convert price to USDC units (6 decimals)
+      // Convert price to USDC units (6 decimals) - ensure correct value is used
       const usdcAmount = parseUnits(product.priceUSDC.toString(), 6)
-      console.log("Parsed USDC amount:", usdcAmount.toString())
       console.log("parseUnits input:", product.priceUSDC.toString())
+      console.log("Parsed USDC amount:", usdcAmount.toString())
 
       // Smart Wallet Profiles data collection requests
       const profileRequests = [
@@ -92,6 +99,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       }
 
       console.log("Transfer call:", transferCall)
+      console.log("Transfer args:", [MERCHANT_ADDRESS, usdcAmount])
 
       // Execute transaction with Smart Wallet Profiles data collection
       const result = await sendCalls({
@@ -200,7 +208,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <h3 className="text-yellow-400 font-bold mb-2">Smart Wallet Checkout</h3>
           <div className="text-white space-y-1">
             <div>Product: {product.name}</div>
-            <div className="text-xl font-bold text-red-400">Pay Amount: {product.priceUSDC || "undefined"} USDC</div>
+            <div className="text-xl font-bold text-red-400">Pay {product.priceUSDC || "undefined"} USDC</div>
             <div className="text-red-400 text-sm">✗ Invalid price detected</div>
           </div>
         </div>
@@ -232,10 +240,13 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         <h3 className="text-yellow-400 font-bold mb-2">Smart Wallet Checkout</h3>
         <div className="text-white space-y-1">
           <div>Product: {product.name}</div>
-          <div className="text-xl font-bold text-green-400">Pay Amount: {product.priceUSDC} USDC</div>
+          <div className="text-2xl font-bold text-green-400">Pay {product.priceUSDC} USDC</div>
           <div className="text-green-400 text-sm">✓ Instant checkout with profile collection</div>
           <div className="text-gray-400 text-xs">
             Payment to: {MERCHANT_ADDRESS.slice(0, 6)}...{MERCHANT_ADDRESS.slice(-4)}
+          </div>
+          <div className="text-gray-400 text-xs">
+            DEBUG: Price = {product.priceUSDC} ({typeof product.priceUSDC})
           </div>
         </div>
       </div>
