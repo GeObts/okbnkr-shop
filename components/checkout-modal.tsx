@@ -14,7 +14,7 @@ interface Product {
   name: string
   nameJp: string
   price: number
-  priceETH: number
+  priceETH?: number
   category: string
   priceUSDC: number
 }
