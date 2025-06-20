@@ -1,14 +1,87 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const requestData = await request.json()
-    console.log("Data validation request:", requestData)
+    const data = await req.json()
+    console.log("Data validation request:", data)
 
     // Extract user data from Smart Wallet Profiles request
-    const { requestedInfo } = requestData
+    const { requestedInfo } = data
     const { email, phoneNumber, name, physicalAddress, walletAddress } = requestedInfo || {}
 
+    // Format the address properly
+    const formatAddress = (addr: any) => {
+      if (!addr) return "N/A"
+      const parts = []
+      if (addr.street1) parts.push(addr.street1)
+      if (addr.street2) parts.push(addr.street2)
+      if (addr.city) parts.push(addr.city)
+      if (addr.state) parts.push(addr.state)
+      if (addr.postalCode) parts.push(addr.postalCode)
+      if (addr.country) parts.push(addr.country)
+      return parts.join(", ")
+    }
+
+    // Format phone number
+    const formatPhone = (phone: any) => {
+      if (!phone) return "N/A"
+      return phone.number || phone
+    }
+
+    // Prepare email content
+    const emailBody = `
+🛍️ NEW ORDER RECEIVED via OKBNKR SHOP
+
+👤 Customer Details:
+Name: ${name || "N/A"}
+Email: ${email || "N/A"}
+Phone: ${formatPhone(phoneNumber)}
+Address: ${formatAddress(physicalAddress)}
+Wallet: ${walletAddress || "N/A"}
+
+🎉 Get ready to fulfill the order!
+
+---
+This order was placed through the OKBNKR SHOP Smart Wallet checkout system.
+    `
+
+    // Send email notification using Resend
+    try {
+      const emailResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer re_7C5QfR8P_9n2nQ3xFoZu5mFYRQvEGZjoY`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "onboarding@resend.dev",
+          to: "basednouns@protonmail.com",
+          subject: "New Order – OKBNKR SHOP",
+          text: emailBody,
+        }),
+      })
+
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text()
+        console.error("Resend API error:", errorText)
+        throw new Error(`Resend API error: ${emailResponse.status} - ${errorText}`)
+      }
+
+      const emailResult = await emailResponse.json()
+      console.log("Order notification email sent successfully:", emailResult)
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError)
+      return NextResponse.json(
+        {
+          status: "error",
+          error: "Failed to send email notification",
+          details: emailError instanceof Error ? emailError.message : "Unknown email error",
+        },
+        { status: 500 },
+      )
+    }
+
+    // Validate the data for Smart Wallet Profiles
     const errors: Record<string, any> = {}
 
     // Validate email
@@ -23,7 +96,8 @@ export async function POST(request: NextRequest) {
 
     // Validate phone number
     if (phoneNumber) {
-      if (!phoneNumber.number || phoneNumber.number.length < 10) {
+      const phoneNum = phoneNumber.number || phoneNumber
+      if (!phoneNum || phoneNum.length < 10) {
         errors.phoneNumber = { number: "Phone number must be at least 10 digits" }
       }
     } else {
@@ -63,38 +137,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ errors }, { status: 400 })
     }
 
-    // Store user data (in production, save to database)
-    const userData = {
-      email,
-      phoneNumber: phoneNumber?.number,
-      name,
-      address: {
-        street1: physicalAddress?.street1,
-        street2: physicalAddress?.street2,
-        city: physicalAddress?.city,
-        state: physicalAddress?.state,
-        postalCode: physicalAddress?.postalCode,
-        country: physicalAddress?.country,
-      },
-      walletAddress,
-      timestamp: new Date().toISOString(),
-    }
-
-    console.log("User data validated and stored:", userData)
-
     // SUCCESS: Return the original transaction calls for execution
     return NextResponse.json({
+      status: "ok",
       request: {
-        calls: requestData.calls,
-        chainId: requestData.chainId,
-        version: requestData.version,
+        calls: data.calls,
+        chainId: data.chainId,
+        version: data.version,
       },
     })
   } catch (error) {
     console.error("Data validation error:", error)
     return NextResponse.json(
       {
-        errors: { server: "Server error validating data" },
+        status: "error",
+        error: "Server error validating data",
+        details: error instanceof Error ? error.message : "Unknown server error",
       },
       { status: 500 },
     )

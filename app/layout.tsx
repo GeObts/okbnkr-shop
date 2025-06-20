@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Klee_One, Anton } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
+import { CartProvider } from "@/contexts/cart-context"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 const kleeOne = Klee_One({
@@ -32,7 +33,9 @@ export default function RootLayout({
     <html lang="en" className={`${kleeOne.variable} ${anton.variable}`}>
       <body className="bg-black text-white font-mono">
         <ErrorBoundary>
-          <Providers>{children}</Providers>
+          <Providers>
+            <CartProvider>{children}</CartProvider>
+          </Providers>
         </ErrorBoundary>
       </body>
     </html>

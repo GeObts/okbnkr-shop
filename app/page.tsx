@@ -11,6 +11,8 @@ import { SmartWalletProfileModal } from "@/components/smart-wallet-profile-modal
 import { CheckoutModal } from "@/components/checkout-modal"
 import { CryptoTicker } from "@/components/crypto-ticker"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { CartModal } from "@/components/cart-modal"
+import { useCart } from "@/contexts/cart-context"
 
 interface Product {
   id: string
@@ -24,9 +26,10 @@ interface Product {
 
 export default function OKBANKRShop() {
   const { address, isConnected } = useAccount()
-  const [cartItems, setCartItems] = useState<Product[]>([])
+  const { state: cartState, addToCart } = useCart()
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+  const [showCartModal, setShowCartModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
 
@@ -153,8 +156,29 @@ export default function OKBANKRShop() {
     }
   }
 
-  const addToCart = (product: Product) => {
-    setCartItems((prev) => [...prev, product])
+  const handleAddToCart = (product: Product) => {
+    addToCart(product)
+    // Optional: Show a brief success message
+    console.log(`Added ${product.name} to cart`)
+  }
+
+  const handleCartCheckout = () => {
+    setShowCartModal(false)
+    if (!isConnected) {
+      alert("Please connect your wallet first!")
+      return
+    }
+
+    // For cart checkout, we'll need to handle multiple items
+    // For now, let's use the first item as selected product
+    if (cartState.items.length > 0) {
+      setSelectedProduct(cartState.items[0])
+      if (!userProfile) {
+        setShowProfileModal(true)
+      } else {
+        setShowCheckoutModal(true)
+      }
+    }
   }
 
   const ProductCard = ({ product }: { product: Product }) => (
@@ -209,7 +233,7 @@ export default function OKBANKRShop() {
                 </Button>
 
                 <Button
-                  onClick={() => addToCart(product)}
+                  onClick={() => handleAddToCart(product)}
                   variant="outline"
                   className="w-full bg-yellow-400 hover:bg-yellow-300 border-2 border-black text-black font-bold pixel-button"
                   size="sm"
@@ -287,12 +311,15 @@ export default function OKBANKRShop() {
         <div className="absolute top-4 right-4 flex gap-3">
           <WalletConnectButton />
 
-          <Button className="bg-black text-yellow-400 px-4 py-2 border-2 border-white font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 pixel-button relative">
+          <Button
+            onClick={() => setShowCartModal(true)}
+            className="bg-black text-yellow-400 px-4 py-2 border-2 border-white font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 pixel-button relative"
+          >
             <ShoppingCart className="w-4 h-4" />
             CART
-            {cartItems.length > 0 && (
+            {cartState.totalItems > 0 && (
               <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-2 border-black">
-                {cartItems.length}
+                {cartState.totalItems}
               </Badge>
             )}
           </Button>
@@ -401,6 +428,8 @@ export default function OKBANKRShop() {
       </footer>
 
       {/* Modals */}
+      <CartModal isOpen={showCartModal} onClose={() => setShowCartModal(false)} onCheckout={handleCartCheckout} />
+
       <SmartWalletProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
