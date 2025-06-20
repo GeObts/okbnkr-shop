@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useAccount, useSendCalls } from "wagmi"
 import { encodeFunctionData, parseUnits } from "viem"
 import { erc20Abi } from "viem"
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink } from "lucide-react"
 
 interface Product {
   id: string
@@ -50,13 +50,12 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     try {
       console.log(`Initiating USDC transfer: ${product.priceUSDC} USDC to ${MERCHANT_ADDRESS}`)
 
-      // Smart Wallet Profiles data collection requests
+      // Smart Wallet Profiles data collection requests - removed unsupported walletAddress
       const requests = [
         { type: "email", optional: false },
         { type: "phoneNumber", optional: false },
         { type: "name", optional: false },
         { type: "physicalAddress", optional: false },
-        { type: "walletAddress", optional: false },
       ]
 
       // USDC transfer call - encode the transfer function
@@ -98,18 +97,20 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     } catch (error) {
       console.error("Purchase failed:", error)
       setTransactionSuccess(false)
-      
+
       let errorMessage = "Purchase failed"
       if (error instanceof Error) {
         if (error.message.includes("rejected")) {
           errorMessage = "Transaction was rejected by user"
         } else if (error.message.includes("insufficient")) {
           errorMessage = "Insufficient USDC balance"
+        } else if (error.message.includes("Unsupported data callback type")) {
+          errorMessage = "Smart Wallet configuration error"
         } else {
           errorMessage = error.message
         }
       }
-      
+
       onError(errorMessage)
     } finally {
       setIsProcessing(false)
@@ -138,7 +139,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <div className="bg-black border-2 border-blue-400 p-4 rounded">
             <h4 className="text-blue-400 font-bold mb-2">Transaction Details:</h4>
             <div className="text-white text-sm space-y-2">
-              <div>Hash: {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}</div>
+              <div>
+                Hash: {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}
+              </div>
               <a
                 href={`https://basescan.org/tx/${transactionHash}`}
                 target="_blank"
@@ -169,7 +172,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <div>Product: {product.name}</div>
           <div>Price: ${product.priceUSDC} USDC</div>
           <div className="text-green-400 text-sm">✓ Lightning-fast checkout with Smart Wallet Profiles</div>
-          <div className="text-gray-400 text-xs">Payment will be sent to: {MERCHANT_ADDRESS.slice(0, 6)}...{MERCHANT_ADDRESS.slice(-4)}</div>
+          <div className="text-gray-400 text-xs">
+            Payment will be sent to: {MERCHANT_ADDRESS.slice(0, 6)}...{MERCHANT_ADDRESS.slice(-4)}
+          </div>
         </div>
       </div>
 
