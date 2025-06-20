@@ -25,7 +25,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   const [isProcessing, setIsProcessing] = useState(false)
 
   const USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" // Base USDC
-  const MERCHANT_ADDRESS = "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b7" // Replace with actual merchant address
+  const MERCHANT_ADDRESS = "0x33a7A26d9C6C799a02E4870137dE647674371FfC" // Your actual Base wallet address
 
   const handlePurchase = async () => {
     if (!isConnected || !address) {
