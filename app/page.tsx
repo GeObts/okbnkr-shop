@@ -35,7 +35,7 @@ export default function OKBANKRShop() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
 
-  // Sample products
+  // Sample products with proper priceUSDC validation
   const sampleProducts: Product[] = [
     // TEST PRODUCT
     {
@@ -77,7 +77,7 @@ export default function OKBANKRShop() {
       category: "tees",
     },
 
-    // HATS (reduced to 3)
+    // HATS
     {
       id: "4",
       name: "5-Panel",
@@ -155,11 +155,18 @@ export default function OKBANKRShop() {
   ]
 
   const handleBuyNow = (product: Product) => {
+    // Validate product data before proceeding
+    if (!product || !product.priceUSDC || product.priceUSDC <= 0) {
+      alert("Invalid product data. Cannot proceed with checkout.")
+      return
+    }
+
     if (!isConnected) {
       alert("Please connect your wallet first!")
       return
     }
 
+    console.log("Selected product for checkout:", product)
     setSelectedProduct(product)
 
     // Check if user has profile
@@ -171,10 +178,14 @@ export default function OKBANKRShop() {
   }
 
   const handleAddToCart = (product: Product) => {
-    console.log("Adding to cart:", product) // Debug log
-    addToCart(product)
+    // Validate product data before adding to cart
+    if (!product || !product.priceUSDC || product.priceUSDC <= 0) {
+      alert("Invalid product data. Cannot add to cart.")
+      return
+    }
 
-    // Show a brief success message
+    console.log("Adding to cart:", product)
+    addToCart(product)
     alert(`Added ${product.name} to cart! 🛒`)
   }
 
@@ -188,101 +199,111 @@ export default function OKBANKRShop() {
     // For cart checkout, we'll need to handle multiple items
     // For now, let's use the first item as selected product
     if (cartState.items.length > 0) {
-      setSelectedProduct(cartState.items[0])
-      if (!userProfile) {
-        setShowProfileModal(true)
+      const firstItem = cartState.items[0]
+      if (firstItem.priceUSDC && firstItem.priceUSDC > 0) {
+        setSelectedProduct(firstItem)
+        if (!userProfile) {
+          setShowProfileModal(true)
+        } else {
+          setShowCheckoutModal(true)
+        }
       } else {
-        setShowCheckoutModal(true)
+        alert("Invalid product in cart. Cannot proceed with checkout.")
       }
     }
   }
 
-  const ProductCard = ({ product }: { product: Product }) => (
-    <Card className="bg-yellow-400 border-4 border-black hover:shadow-lg transition-all duration-300 transform hover:scale-105 relative">
-      {/* Test Item Badge */}
-      {product.isTestItem && (
-        <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-2 border-black font-bold pixel-text z-10">
-          TEST ITEM
-        </Badge>
-      )}
+  const ProductCard = ({ product }: { product: Product }) => {
+    const isValidProduct = product && product.priceUSDC !== undefined && product.priceUSDC > 0
+    const isPosterCategory = product.category === "posters"
 
-      <CardContent className="p-4">
-        <div className="aspect-square bg-black border-2 border-black rounded-none mb-4 flex flex-col items-center justify-center relative overflow-hidden">
-          <div className="grid-pattern absolute inset-0 opacity-20"></div>
+    return (
+      <Card className="bg-yellow-400 border-4 border-black hover:shadow-lg transition-all duration-300 transform hover:scale-105 relative">
+        {/* Test Item Badge */}
+        {product.isTestItem && (
+          <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-2 border-black font-bold pixel-text z-10">
+            TEST ITEM
+          </Badge>
+        )}
 
-          {product.image ? (
-            <Image
-              src={product.image || "/placeholder.svg"}
-              alt={product.name}
-              width={200}
-              height={200}
-              className="w-full h-full object-cover pixelated"
-              style={{ imageRendering: "pixelated" }}
-            />
-          ) : (
-            <>
-              <div className="text-yellow-400 text-lg font-bold text-center pixel-text mb-2">{product.name}</div>
-              <div className="text-yellow-400 text-sm font-klee text-center mb-4">{product.nameJp}</div>
-              {product.isTestItem ? (
-                <TestTube className="w-8 h-8 text-yellow-400" />
-              ) : (
-                <Monitor className="w-8 h-8 text-yellow-400" />
-              )}
-            </>
-          )}
-        </div>
+        <CardContent className="p-4">
+          <div className="aspect-square bg-black border-2 border-black rounded-none mb-4 flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="grid-pattern absolute inset-0 opacity-20"></div>
 
-        <div className="space-y-3">
-          <div className="text-center">
-            <div className="text-black font-bold text-sm">{product.name}</div>
-            <div className="text-black text-xs font-klee">{product.nameJp}</div>
-            {product.description && <div className="text-black text-xs mt-1 italic">{product.description}</div>}
-          </div>
-
-          <div className="text-center">
-            {product.category !== "posters" && (
-              <div className="text-black font-bold text-lg flex items-center justify-center">
-                <DollarSign className="w-4 h-4" />
-                {product.priceUSDC} USDC
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            {product.category !== "posters" ? (
-              <>
-                <Button
-                  onClick={() => handleBuyNow(product)}
-                  className="w-full bg-black hover:bg-gray-800 border-2 border-black text-yellow-400 font-bold pixel-button"
-                  size="sm"
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  BUY NOW
-                </Button>
-
-                <Button
-                  onClick={() => handleAddToCart(product)}
-                  variant="outline"
-                  className="w-full bg-yellow-400 hover:bg-yellow-300 border-2 border-black text-black font-bold pixel-button"
-                  size="sm"
-                >
-                  ADD TO CART
-                </Button>
-              </>
+            {product.image ? (
+              <Image
+                src={product.image || "/placeholder.svg"}
+                alt={product.name}
+                width={200}
+                height={200}
+                className="w-full h-full object-cover pixelated"
+                style={{ imageRendering: "pixelated" }}
+              />
             ) : (
-              <Button
-                disabled
-                className="w-full bg-gray-600 border-2 border-black text-gray-400 font-bold pixel-button cursor-not-allowed"
-                size="sm"
-              >
-                COMING SOON
-              </Button>
+              <>
+                <div className="text-yellow-400 text-lg font-bold text-center pixel-text mb-2">{product.name}</div>
+                <div className="text-yellow-400 text-sm font-klee text-center mb-4">{product.nameJp}</div>
+                {product.isTestItem ? (
+                  <TestTube className="w-8 h-8 text-yellow-400" />
+                ) : (
+                  <Monitor className="w-8 h-8 text-yellow-400" />
+                )}
+              </>
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+
+          <div className="space-y-3">
+            <div className="text-center">
+              <div className="text-black font-bold text-sm">{product.name}</div>
+              <div className="text-black text-xs font-klee">{product.nameJp}</div>
+              {product.description && <div className="text-black text-xs mt-1 italic">{product.description}</div>}
+            </div>
+
+            <div className="text-center">
+              {!isPosterCategory && (
+                <div className="text-black font-bold text-lg flex items-center justify-center">
+                  <DollarSign className="w-4 h-4" />
+                  {product.priceUSDC} USDC
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {!isPosterCategory && isValidProduct ? (
+                <>
+                  <Button
+                    onClick={() => handleBuyNow(product)}
+                    className="w-full bg-black hover:bg-gray-800 border-2 border-black text-yellow-400 font-bold pixel-button"
+                    size="sm"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    BUY NOW
+                  </Button>
+
+                  <Button
+                    onClick={() => handleAddToCart(product)}
+                    variant="outline"
+                    className="w-full bg-yellow-400 hover:bg-yellow-300 border-2 border-black text-black font-bold pixel-button"
+                    size="sm"
+                  >
+                    ADD TO CART
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  disabled
+                  className="w-full bg-gray-600 border-2 border-black text-gray-400 font-bold pixel-button cursor-not-allowed"
+                  size="sm"
+                >
+                  {isPosterCategory ? "COMING SOON" : "INVALID PRICE"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const CategorySection = ({
     japaneseTitle,
@@ -341,7 +362,7 @@ export default function OKBANKRShop() {
 
           <Button
             onClick={() => {
-              console.log("Cart button clicked, items:", cartState.totalItems) // Debug log
+              console.log("Cart button clicked, items:", cartState.totalItems)
               setShowCartModal(true)
             }}
             className="bg-black text-yellow-400 px-4 py-2 border-2 border-white font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 pixel-button relative"
@@ -475,7 +496,11 @@ export default function OKBANKRShop() {
 
       <CheckoutModal
         isOpen={showCheckoutModal}
-        onClose={() => setShowCheckoutModal(false)}
+        onClose={() => {
+          setShowCheckoutModal(false)
+          // Reset selected product when modal closes
+          setSelectedProduct(null)
+        }}
         product={selectedProduct}
         userProfile={userProfile}
       />
