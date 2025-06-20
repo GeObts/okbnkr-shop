@@ -45,12 +45,14 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
   // Validate product price
   const isValidPrice = () => {
+    console.log("Validating price:", product.priceUSDC, typeof product.priceUSDC)
     return (
       product &&
       product.priceUSDC !== undefined &&
       product.priceUSDC !== null &&
       typeof product.priceUSDC === "number" &&
-      product.priceUSDC > 0
+      product.priceUSDC > 0 &&
+      !isNaN(product.priceUSDC)
     )
   }
 
@@ -58,6 +60,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     // Reset previous states
     setError(null)
     setTransactionSuccess(false)
+
+    console.log("Starting purchase process...")
+    console.log("Product:", product)
+    console.log("Sending payment:", product.priceUSDC)
 
     // Check wallet connection
     if (!isConnected || !address) {
@@ -69,7 +75,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
     // Validate product price
     if (!isValidPrice()) {
-      const errorMsg = "Invalid product price. Cannot process payment."
+      const errorMsg = `Invalid product price: ${product.priceUSDC}. Cannot process payment.`
+      console.error(errorMsg)
       setError(errorMsg)
       onError(errorMsg)
       return
@@ -78,7 +85,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     setIsProcessing(true)
 
     try {
-      console.log(`Initiating USDC transfer: ${product.priceUSDC} USDC to ${MERCHANT_ADDRESS}`)
+      // Parse USDC amount with 6 decimals
+      const usdcAmount = parseUnits(product.priceUSDC.toString(), 6)
+      console.log("Final transfer args:", [MERCHANT_ADDRESS, usdcAmount])
+      console.log("USDC amount parsed:", usdcAmount.toString())
 
       // Smart Wallet Profiles data collection requests
       const requests = [
@@ -87,10 +97,6 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         { type: "name", optional: false },
         { type: "physicalAddress", optional: false },
       ]
-
-      // Parse USDC amount with 6 decimals
-      const usdcAmount = parseUnits(product.priceUSDC.toString(), 6)
-      console.log(`Parsed USDC amount: ${usdcAmount}`)
 
       // USDC transfer call - encode the transfer function
       const transferCall = {
@@ -102,9 +108,11 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         }),
       }
 
-      console.log("Transfer call:", transferCall)
+      console.log("Transfer call prepared:", transferCall)
+      console.log("Transfer call data:", transferCall.data)
 
       // Send transaction with Smart Wallet Profiles data collection
+      console.log("Calling sendCalls...")
       const result = await sendCalls({
         calls: [transferCall],
         capabilities: {
@@ -115,32 +123,56 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         },
       })
 
-      console.log("Transaction result:", result)
+      console.log("sendCalls result:", result)
+      console.log("Result type:", typeof result)
+      console.log("Result keys:", result ? Object.keys(result) : "no result")
 
+      // Check if we have a valid result
       if (result) {
+        console.log("Transaction appears successful")
         setTransactionSuccess(true)
         setIsProcessing(false)
 
-        // Extract transaction hash if available
-        const txHash = result.transactionHash || result.hash || result.id
+        // Try to extract transaction hash from various possible locations
+        let txHash = null
+        if (typeof result === "string") {
+          txHash = result
+        } else if (result && typeof result === "object") {
+          txHash =
+            result.transactionHash ||
+            result.hash ||
+            result.id ||
+            result.txHash ||
+            result.receipt?.transactionHash ||
+            result.receipt?.hash
+        }
+
+        console.log("Extracted transaction hash:", txHash)
+
         if (txHash) {
           setTransactionHash(txHash)
         }
 
-        onSuccess(txHash)
+        onSuccess(txHash || undefined)
 
-        // Auto-reset after 5 seconds
+        // Auto-reset after 10 seconds
         setTimeout(() => {
           resetState()
-        }, 5000)
+        }, 10000)
       } else {
-        throw new Error("Transaction failed - no result returned")
+        console.error("No result returned from sendCalls")
+        throw new Error("Transaction failed - sendCalls returned no result")
       }
     } catch (error) {
-      console.error("Purchase failed:", error)
+      console.error("Purchase failed with error:", error)
+      console.error("Error type:", typeof error)
+      console.error("Error message:", error instanceof Error ? error.message : String(error))
+      console.error("Error stack:", error instanceof Error ? error.stack : "No stack")
+
       setIsProcessing(false)
       setTransactionSuccess(false)
 
+      // Extract the actual error message
       let errorMessage = "Payment failed"
       if (error instanceof Error) {
         if (error.message.includes("rejected") || error.message.includes("denied")) {
@@ -149,18 +181,24 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           errorMessage = "Insufficient USDC balance"
         } else if (error.message.includes("Unsupported data callback type")) {
           errorMessage = "Smart Wallet configuration error"
+        } else if (error.message.includes("no result")) {
+          errorMessage = "Transaction failed - no confirmation received"
         } else {
-          errorMessage = error.message
+          // Show the actual error message from the blockchain/wallet
+          errorMessage = `Transaction failed: ${error.message}`
         }
+      } else {
+        errorMessage = `Transaction failed: ${String(error)}`
       }
 
+      console.log("Final error message:", errorMessage)
       setError(errorMessage)
       onError(errorMessage)
 
-      // Auto-clear error after 10 seconds
+      // Auto-clear error after 15 seconds
       setTimeout(() => {
         setError(null)
-      }, 10000)
+      }, 15000)
     }
   }
 
@@ -179,6 +217,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           </div>
           <div className="text-white text-sm">
             This product has an invalid price (${product?.priceUSDC || "undefined"}). Cannot process payment.
+            <br />
+            <span className="text-gray-400 text-xs">
+              Price type: {typeof product?.priceUSDC}, Value: {String(product?.priceUSDC)}
+            </span>
           </div>
         </div>
         <Button
@@ -244,6 +286,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <div className="text-gray-400 text-xs">
             Payment will be sent to: {MERCHANT_ADDRESS.slice(0, 6)}...{MERCHANT_ADDRESS.slice(-4)}
           </div>
+          <div className="text-gray-400 text-xs">
+            Debug: Price type: {typeof product.priceUSDC}, Valid: {isValidPrice() ? "Yes" : "No"}
+          </div>
         </div>
       </div>
 
@@ -252,7 +297,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         <div className="bg-red-900 border-2 border-red-400 p-4 rounded">
           <div className="flex items-center text-red-400 font-bold mb-2">
             <AlertCircle className="w-5 h-5 mr-2" />
-            Error
+            Transaction Error
           </div>
           <div className="text-white text-sm">{error}</div>
         </div>
