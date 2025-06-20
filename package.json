@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@coinbase/onchainkit": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-slot": "latest",
+    "@radix-ui/react-toast": "latest",
     "@rainbow-me/rainbowkit": "latest",
     "@tanstack/react-query": "latest",
     "class-variance-authority": "^0.7.1",
