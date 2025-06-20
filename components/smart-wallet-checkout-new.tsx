@@ -32,6 +32,17 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   const USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" // Base USDC
   const MERCHANT_ADDRESS = "0x33a7A26d9C6C799a02E4870137dE647674371FfC"
 
+  const isValidPrice = () => {
+    const isValid =
+      product.priceUSDC !== undefined &&
+      product.priceUSDC !== null &&
+      typeof product.priceUSDC === "number" &&
+      product.priceUSDC > 0 &&
+      !isNaN(product.priceUSDC)
+    console.log("Price validation:", { priceUSDC: product.priceUSDC, isValid })
+    return isValid
+  }
+
   const handlePurchase = async () => {
     if (!isConnected || !address) {
       const errorMsg = "Please connect your wallet first"
@@ -41,7 +52,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     }
 
     // Validate product price
-    if (!product.priceUSDC || product.priceUSDC <= 0) {
+    if (!isValidPrice()) {
       const errorMsg = "Invalid product price"
       setError(errorMsg)
       onError?.(errorMsg)
@@ -54,11 +65,13 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
     try {
       console.log("Processing payment for:", product.name)
+      console.log("Product priceUSDC:", product.priceUSDC, "Type:", typeof product.priceUSDC)
       console.log("Amount:", product.priceUSDC, "USDC")
 
       // Convert price to USDC units (6 decimals)
       const usdcAmount = parseUnits(product.priceUSDC.toString(), 6)
       console.log("Parsed USDC amount:", usdcAmount.toString())
+      console.log("parseUnits input:", product.priceUSDC.toString())
 
       // Smart Wallet Profiles data collection requests
       const profileRequests = [
@@ -146,8 +159,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           </div>
           <div className="text-white space-y-1">
             <div>Product: {product.name}</div>
-            <div>Amount: ${product.priceUSDC} USDC</div>
-            <div className="text-green-400 text-sm">✓ Transaction confirmed on Base</div>
+            <div>Amount Paid: ${product.priceUSDC} USDC</div>
+            <div className="text-green-400 text-sm">✓ Transaction confirmed on Base network</div>
+            <div className="text-green-400 text-sm">✓ Profile information collected</div>
           </div>
         </div>
 
@@ -178,6 +192,39 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     )
   }
 
+  // Invalid price state
+  if (!isValidPrice()) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-black border-2 border-yellow-400 p-4 rounded-lg">
+          <h3 className="text-yellow-400 font-bold mb-2">Smart Wallet Checkout</h3>
+          <div className="text-white space-y-1">
+            <div>Product: {product.name}</div>
+            <div className="text-xl font-bold text-red-400">Pay Amount: {product.priceUSDC || "undefined"} USDC</div>
+            <div className="text-red-400 text-sm">✗ Invalid price detected</div>
+          </div>
+        </div>
+
+        <div className="bg-red-900 border-2 border-red-400 p-4 rounded-lg">
+          <div className="flex items-center text-red-400 font-bold mb-2">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            Invalid Price
+          </div>
+          <div className="text-white text-sm">
+            Price: {String(product.priceUSDC)} (Type: {typeof product.priceUSDC})
+          </div>
+        </div>
+
+        <Button
+          disabled
+          className="w-full bg-gray-600 border-2 border-gray-400 text-gray-400 font-bold cursor-not-allowed"
+        >
+          Invalid Price - Cannot Purchase
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* Product Summary */}
@@ -185,7 +232,7 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         <h3 className="text-yellow-400 font-bold mb-2">Smart Wallet Checkout</h3>
         <div className="text-white space-y-1">
           <div>Product: {product.name}</div>
-          <div>Price: ${product.priceUSDC} USDC</div>
+          <div className="text-xl font-bold text-green-400">Pay Amount: {product.priceUSDC} USDC</div>
           <div className="text-green-400 text-sm">✓ Instant checkout with profile collection</div>
           <div className="text-gray-400 text-xs">
             Payment to: {MERCHANT_ADDRESS.slice(0, 6)}...{MERCHANT_ADDRESS.slice(-4)}
@@ -207,9 +254,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       {/* Purchase Button */}
       <Button
         onClick={handlePurchase}
-        disabled={isProcessing || !isConnected}
+        disabled={isProcessing || !isConnected || !isValidPrice()}
         className={`w-full border-2 border-white font-bold ${
-          !isConnected
+          !isConnected || !isValidPrice()
             ? "bg-red-600 hover:bg-red-500 text-white"
             : isProcessing
               ? "bg-yellow-600 text-white cursor-not-allowed"
@@ -223,6 +270,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           </>
         ) : !isConnected ? (
           "Connect Wallet First"
+        ) : !isValidPrice() ? (
+          "Invalid Price"
         ) : (
           <>
             <Wallet className="w-4 h-4 mr-2" />
