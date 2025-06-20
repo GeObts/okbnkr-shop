@@ -21,6 +21,9 @@ const anton = Anton({
 export const metadata: Metadata = {
   title: "OK$BANKR SHOP - オーケー バンカー ショップ",
   description: "Retro-futuristic e-commerce with crypto payments and Smart Wallet integration",
+  icons: {
+    icon: "/favicon.ico",
+  },
     generator: 'v0.dev'
 }
 
@@ -31,6 +34,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${kleeOne.variable} ${anton.variable}`}>
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+      </head>
       <body className="bg-black text-white font-mono">
         <ErrorBoundary>
           <Providers>

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Monitor, Shirt, Crown, ImageIcon, Zap, DollarSign } from "lucide-react"
+import { ShoppingCart, Monitor, Shirt, Crown, ImageIcon, Zap, DollarSign, TestTube } from "lucide-react"
 import { useAccount } from "wagmi"
 import Image from "next/image"
 import { SmartWalletProfileModal } from "@/components/smart-wallet-profile-modal"
@@ -22,6 +22,8 @@ interface Product {
   priceUSDC: number
   category: string
   image?: string
+  isTestItem?: boolean
+  description?: string
 }
 
 export default function OKBANKRShop() {
@@ -35,6 +37,18 @@ export default function OKBANKRShop() {
 
   // Sample products
   const sampleProducts: Product[] = [
+    // TEST PRODUCT
+    {
+      id: "test-1",
+      name: "Tester Product",
+      nameJp: "テスター商品",
+      price: 0.05,
+      priceUSDC: 0.05,
+      category: "tees",
+      isTestItem: true,
+      description: "Test this checkout flow for just 5 cents.",
+    },
+
     // TEES
     {
       id: "1",
@@ -184,7 +198,14 @@ export default function OKBANKRShop() {
   }
 
   const ProductCard = ({ product }: { product: Product }) => (
-    <Card className="bg-yellow-400 border-4 border-black hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+    <Card className="bg-yellow-400 border-4 border-black hover:shadow-lg transition-all duration-300 transform hover:scale-105 relative">
+      {/* Test Item Badge */}
+      {product.isTestItem && (
+        <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-2 border-black font-bold pixel-text z-10">
+          TEST ITEM
+        </Badge>
+      )}
+
       <CardContent className="p-4">
         <div className="aspect-square bg-black border-2 border-black rounded-none mb-4 flex flex-col items-center justify-center relative overflow-hidden">
           <div className="grid-pattern absolute inset-0 opacity-20"></div>
@@ -202,7 +223,11 @@ export default function OKBANKRShop() {
             <>
               <div className="text-yellow-400 text-lg font-bold text-center pixel-text mb-2">{product.name}</div>
               <div className="text-yellow-400 text-sm font-klee text-center mb-4">{product.nameJp}</div>
-              <Monitor className="w-8 h-8 text-yellow-400" />
+              {product.isTestItem ? (
+                <TestTube className="w-8 h-8 text-yellow-400" />
+              ) : (
+                <Monitor className="w-8 h-8 text-yellow-400" />
+              )}
             </>
           )}
         </div>
@@ -211,6 +236,7 @@ export default function OKBANKRShop() {
           <div className="text-center">
             <div className="text-black font-bold text-sm">{product.name}</div>
             <div className="text-black text-xs font-klee">{product.nameJp}</div>
+            {product.description && <div className="text-black text-xs mt-1 italic">{product.description}</div>}
           </div>
 
           <div className="text-center">
@@ -284,7 +310,7 @@ export default function OKBANKRShop() {
       <div
         className={`grid gap-6 ${
           englishTitle === "TEES"
-            ? "grid-cols-1 md:grid-cols-3"
+            ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
             : englishTitle === "HATS"
               ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
               : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
