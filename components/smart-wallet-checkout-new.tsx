@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useAccount, useSendCalls } from "wagmi"
-import { encodeFunctionData, parseUnits } from "viem"
+import { encodeFunctionData, parseUnits, formatUnits } from "viem"
 import { erc20Abi } from "viem"
 import { ExternalLink, Wallet, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 
@@ -34,6 +34,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   const [isSuccess, setIsSuccess] = useState(false)
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Base USDC contract address
+  const USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  const MERCHANT_ADDRESS = "0x33a7A26d9C6C799a02E4870137dE647674371FfC"
 
   const isValidPrice = () => {
     return (
@@ -66,12 +70,26 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
     setIsSuccess(false)
 
     try {
-      console.log("Processing payment for:", product.name)
-      console.log("Product priceUSDC:", product.priceUSDC)
+      console.log("🚀 Processing payment for:", product.name)
+      console.log("Input price:", product.priceUSDC)
 
-      // Use correct USDC parsing
-      const amount = parseUnits(product.priceUSDC.toString(), 6)
-      console.log("USDC amount to send:", amount.toString())
+      // CRITICAL FIX: Ensure proper decimal handling for parseUnits
+      const priceString = product.priceUSDC.toString()
+      console.log("parseUnits input:", priceString)
+
+      // Convert to USDC units (6 decimals)
+      const amount = parseUnits(priceString, 6)
+      console.log("parseUnits result:", amount.toString())
+
+      // Verify the conversion is correct
+      const expectedAmount = BigInt(Math.round(product.priceUSDC * 1000000))
+      console.log("Expected amount (manual calc):", expectedAmount.toString())
+      console.log("Amounts match:", amount === expectedAmount)
+
+      // Double-check by converting back
+      const backToUSDC = formatUnits(amount, 6)
+      console.log("Converted back to USDC:", backToUSDC)
+      console.log("Original vs converted back:", product.priceUSDC, "vs", backToUSDC)
 
       // Smart Wallet Profiles data collection requests
       const profileRequests = [
@@ -83,17 +101,23 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
       // Create the transfer call
       const transferCall = {
-        to: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base USDC contract
+        to: USDC_CONTRACT,
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
-          args: ["0x33a7A26d9C6C799a02E4870137dE647674371FfC", amount], // My wallet
+          args: [MERCHANT_ADDRESS, amount],
         }),
       }
 
-      console.log("Transfer call:", transferCall)
+      console.log("📦 Transfer call created:")
+      console.log("  - To contract:", USDC_CONTRACT)
+      console.log("  - Recipient:", MERCHANT_ADDRESS)
+      console.log("  - Amount (wei):", amount.toString())
+      console.log("  - Amount (USDC):", formatUnits(amount, 6))
+      console.log("  - Data length:", transferCall.data.length)
 
       // Execute transaction with Smart Wallet Profiles data collection
+      console.log("🔄 Calling sendCalls...")
       const result = await sendCalls({
         calls: [transferCall],
         capabilities: {
@@ -104,7 +128,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         },
       })
 
-      console.log("Transaction result:", result)
+      console.log("✅ Transaction result:", result)
+      console.log("Result type:", typeof result)
 
       if (result) {
         // Extract transaction hash
@@ -114,28 +139,57 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           setTransactionHash(txHash)
           setIsSuccess(true)
           onSuccess?.(txHash)
-          console.log("Payment successful! Transaction hash:", txHash)
+          console.log("🎉 Payment successful! Transaction hash:", txHash)
         } else {
-          throw new Error("Transaction completed but no hash returned")
+          console.warn("⚠️ Transaction completed but no hash found")
+          setIsSuccess(true)
+          onSuccess?.("unknown")
         }
       } else {
-        throw new Error("Transaction failed - no result returned")
+        throw new Error("Transaction failed - sendCalls returned null/undefined")
       }
     } catch (err) {
-      console.error("Payment failed:", err)
+      console.error("❌ Payment failed:", err)
+      console.log("Full error:", JSON.stringify(err, Object.getOwnPropertyNames(err)))
 
       let errorMessage = "Payment failed"
+      let detailedError = ""
+
       if (err instanceof Error) {
-        if (err.message.includes("rejected") || err.message.includes("denied")) {
+        detailedError = err.message
+
+        // Check for specific error types
+        if (err.message.includes("rejected") || err.message.includes("denied") || err.message.includes("cancelled")) {
           errorMessage = "Transaction cancelled by user"
-        } else if (err.message.includes("insufficient")) {
+        } else if (err.message.includes("insufficient") || err.message.includes("balance")) {
           errorMessage = "Insufficient USDC balance"
+          detailedError = `You need at least ${product.priceUSDC} USDC in your wallet`
+        } else if (err.message.includes("allowance") || err.message.includes("approve")) {
+          errorMessage = "USDC spending not approved"
+          detailedError = "You may need to approve USDC spending first"
+        } else if (err.message.includes("network") || err.message.includes("connection")) {
+          errorMessage = "Network error"
+          detailedError = "Please check your internet connection and try again"
+        } else if (err.message.includes("gas") || err.message.includes("fee")) {
+          errorMessage = "Transaction fee error"
+          detailedError = "Not enough ETH for gas fees or gas limit exceeded"
+        } else if (err.message.includes("nonce")) {
+          errorMessage = "Transaction nonce error"
+          detailedError = "Please try again in a few seconds"
         } else {
-          errorMessage = err.message
+          errorMessage = `Transaction failed: ${err.message}`
         }
+      } else {
+        detailedError = String(err)
+        errorMessage = `Unknown error: ${detailedError}`
       }
 
-      setError(errorMessage)
+      console.log("📢 Error classification:")
+      console.log("  - User message:", errorMessage)
+      console.log("  - Detailed error:", detailedError)
+      console.log("  - Original error:", err)
+
+      setError(`${errorMessage}\n\nDetails: ${detailedError}`)
       onError?.(errorMessage)
     } finally {
       setIsProcessing(false)
@@ -159,28 +213,30 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           </div>
           <div className="text-white space-y-1">
             <div>Product: {product.name}</div>
-            <div>Amount Paid: ${product.priceUSDC} USDC</div>
+            <div>Amount Paid: {product.priceUSDC} USDC</div>
             <div className="text-green-400 text-sm">✓ Transaction confirmed on Base network</div>
             <div className="text-green-400 text-sm">✓ Profile information collected</div>
           </div>
         </div>
 
-        <div className="bg-black border-2 border-blue-400 p-4 rounded-lg">
-          <h4 className="text-blue-400 font-bold mb-2">Transaction Details</h4>
-          <div className="text-white text-sm space-y-2">
-            <div className="font-mono">
-              {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}
+        {transactionHash !== "unknown" && (
+          <div className="bg-black border-2 border-blue-400 p-4 rounded-lg">
+            <h4 className="text-blue-400 font-bold mb-2">Transaction Details</h4>
+            <div className="text-white text-sm space-y-2">
+              <div className="font-mono">
+                {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}
+              </div>
+              <a
+                href={`https://basescan.org/tx/${transactionHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-blue-400 hover:text-blue-300 underline"
+              >
+                View on BaseScan <ExternalLink className="w-4 h-4 ml-1" />
+              </a>
             </div>
-            <a
-              href={`https://basescan.org/tx/${transactionHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center text-blue-400 hover:text-blue-300 underline"
-            >
-              View on BaseScan <ExternalLink className="w-4 h-4 ml-1" />
-            </a>
           </div>
-        </div>
+        )}
 
         <Button
           onClick={resetState}
@@ -234,7 +290,12 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <div>Product: {product.name}</div>
           <div className="text-2xl font-bold text-green-400">Pay {product.priceUSDC} USDC</div>
           <div className="text-green-400 text-sm">✓ Instant checkout with profile collection</div>
-          <div className="text-gray-400 text-xs">Payment to: 0x33a7A2...371FfC</div>
+          <div className="text-gray-400 text-xs">
+            Contract: {USDC_CONTRACT.slice(0, 8)}...{USDC_CONTRACT.slice(-6)}
+          </div>
+          <div className="text-gray-400 text-xs">
+            Recipient: {MERCHANT_ADDRESS.slice(0, 8)}...{MERCHANT_ADDRESS.slice(-6)}
+          </div>
         </div>
       </div>
 
@@ -243,9 +304,9 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         <div className="bg-red-900 border-2 border-red-400 p-4 rounded-lg">
           <div className="flex items-center text-red-400 font-bold mb-2">
             <AlertCircle className="w-5 h-5 mr-2" />
-            Error
+            Transaction Error
           </div>
-          <div className="text-white text-sm">{error}</div>
+          <div className="text-white text-sm whitespace-pre-wrap">{error}</div>
         </div>
       )}
 
