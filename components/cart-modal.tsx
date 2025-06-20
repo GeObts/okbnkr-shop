@@ -30,7 +30,7 @@ export function CartModal({ isOpen, onClose, onCheckout }: CartModalProps) {
             <CardContent className="p-8 text-center">
               <div className="text-6xl mb-4">🛒</div>
               <h3 className="text-yellow-400 font-bold text-xl mb-2 pixel-text">CART IS EMPTY</h3>
-              <p className="text-green-400 font-mono mb-6">No items yet. Go add something 😎</p>
+              <p className="text-green-400 font-mono mb-6">No items yet 😎</p>
               <Button
                 onClick={onClose}
                 className="bg-yellow-400 hover:bg-yellow-300 border-2 border-black text-black font-bold pixel-button"

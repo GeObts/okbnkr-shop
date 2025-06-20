@@ -157,9 +157,11 @@ export default function OKBANKRShop() {
   }
 
   const handleAddToCart = (product: Product) => {
+    console.log("Adding to cart:", product) // Debug log
     addToCart(product)
-    // Optional: Show a brief success message
-    console.log(`Added ${product.name} to cart`)
+
+    // Show a brief success message
+    alert(`Added ${product.name} to cart! 🛒`)
   }
 
   const handleCartCheckout = () => {
@@ -312,7 +314,10 @@ export default function OKBANKRShop() {
           <WalletConnectButton />
 
           <Button
-            onClick={() => setShowCartModal(true)}
+            onClick={() => {
+              console.log("Cart button clicked, items:", cartState.totalItems) // Debug log
+              setShowCartModal(true)
+            }}
             className="bg-black text-yellow-400 px-4 py-2 border-2 border-white font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 pixel-button relative"
           >
             <ShoppingCart className="w-4 h-4" />
