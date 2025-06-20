@@ -2,6 +2,138 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RainbowKit Custom Styles - Inline to avoid import issues */
+[data-rk] {
+  --rk-fonts-body: "Courier New", monospace;
+  --rk-radii-actionButton: 0px;
+  --rk-radii-connectButton: 0px;
+  --rk-radii-menuButton: 0px;
+  --rk-radii-modal: 0px;
+  --rk-radii-modalMobile: 0px;
+}
+
+/* RainbowKit Modal Overrides */
+[data-rk] .iekbcc0 {
+  background-color: #000000 !important;
+  border: 4px solid #ffff00 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+}
+
+[data-rk] .ju367v0 {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border: 2px solid #ffff00 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  box-shadow: 4px 4px 0px rgba(255, 255, 0, 1) !important;
+}
+
+[data-rk] .ju367v0:hover {
+  background-color: #333333 !important;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px rgba(255, 255, 0, 1) !important;
+}
+
+/* RainbowKit Connect Button */
+[data-rk] button[data-testid="rk-connect-button"] {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border: 4px solid #ffff00 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 1) !important;
+  padding: 12px 24px !important;
+}
+
+[data-rk] button[data-testid="rk-connect-button"]:hover {
+  background-color: #333333 !important;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1) !important;
+}
+
+/* RainbowKit Account Button */
+[data-rk] button[data-testid="rk-account-button"] {
+  background-color: #00aa00 !important;
+  color: #ffffff !important;
+  border: 4px solid #000000 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 1) !important;
+}
+
+[data-rk] button[data-testid="rk-account-button"]:hover {
+  background-color: #008800 !important;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1) !important;
+}
+
+/* RainbowKit Chain Button */
+[data-rk] button[data-testid="rk-chain-button"] {
+  background-color: #ff6600 !important;
+  color: #ffffff !important;
+  border: 4px solid #000000 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+}
+
+/* RainbowKit Modal Backdrop */
+[data-rk] [role="dialog"] {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+}
+
+/* RainbowKit Modal Content */
+[data-rk] [role="dialog"] > div {
+  background-color: #000000 !important;
+  border: 4px solid #ffff00 !important;
+  border-radius: 0px !important;
+  color: #ffff00 !important;
+  font-family: "Courier New", monospace !important;
+}
+
+/* RainbowKit Wallet Options */
+[data-rk] button[role="menuitem"] {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border: 2px solid #ffff00 !important;
+  border-radius: 0px !important;
+  font-family: "Courier New", monospace !important;
+  margin: 4px !important;
+}
+
+[data-rk] button[role="menuitem"]:hover {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1) !important;
+}
+
+/* RainbowKit Text Elements */
+[data-rk] h1,
+[data-rk] h2,
+[data-rk] h3,
+[data-rk] p,
+[data-rk] span {
+  font-family: "Courier New", monospace !important;
+  color: #ffff00 !important;
+}
+
+/* RainbowKit Close Button */
+[data-rk] button[aria-label="Close"] {
+  background-color: #ff0000 !important;
+  color: #ffffff !important;
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+  font-weight: bold !important;
+}
+
 :root {
   --font-klee-one: "Klee One", cursive;
   --font-anton: "Anton", sans-serif;

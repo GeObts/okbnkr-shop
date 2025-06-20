@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Zap, CheckCircle, Truck, ExternalLink } from 'lucide-react'
+import { Zap, CheckCircle, Truck, ExternalLink } from "lucide-react"
 import { SmartWalletCheckout } from "@/components/smart-wallet-checkout"
+import { useAccount } from "wagmi"
+import { base } from "wagmi/chains"
 
 interface Product {
   id: string
@@ -29,6 +31,9 @@ export function CheckoutModal({ isOpen, onClose, product, userProfile }: Checkou
   const [isComplete, setIsComplete] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
+
+  const { isConnected, chain } = useAccount()
+  const isOnBase = chain?.id === base.id
 
   // Reset state when modal opens/closes or product changes
   useEffect(() => {
@@ -78,12 +83,14 @@ export function CheckoutModal({ isOpen, onClose, product, userProfile }: Checkou
               <div>Product: {product.name}</div>
               <div>Total: ${product.priceUSDC} USDC</div>
             </div>
-            
+
             {transactionHash && (
               <div className="mt-4 p-4 bg-gray-900 border-2 border-blue-400 rounded">
                 <div className="text-blue-400 font-bold mb-2">Transaction Details:</div>
                 <div className="text-white text-sm space-y-2">
-                  <div>Hash: {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}</div>
+                  <div>
+                    Hash: {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}
+                  </div>
                   <a
                     href={`https://basescan.org/tx/${transactionHash}`}
                     target="_blank"
@@ -165,12 +172,23 @@ export function CheckoutModal({ isOpen, onClose, product, userProfile }: Checkou
               </div>
             </div>
 
+            {/* Wallet Connection Warning */}
+            {!isConnected && (
+              <div className="bg-red-900 border-2 border-red-400 p-4 rounded">
+                <div className="text-red-400 font-bold">⚠️ Wallet Not Connected</div>
+                <div className="text-white text-sm">Please connect your wallet to proceed with checkout.</div>
+              </div>
+            )}
+
+            {isConnected && !isOnBase && (
+              <div className="bg-orange-900 border-2 border-orange-400 p-4 rounded">
+                <div className="text-orange-400 font-bold">⚠️ Wrong Network</div>
+                <div className="text-white text-sm">Please switch to Base network to complete your purchase.</div>
+              </div>
+            )}
+
             {/* Payment Method */}
-            <SmartWalletCheckout 
-              product={product} 
-              onSuccess={handlePaymentSuccess} 
-              onError={handlePaymentError} 
-            />
+            <SmartWalletCheckout product={product} onSuccess={handlePaymentSuccess} onError={handlePaymentError} />
 
             {paymentError && (
               <div className="bg-red-900 border-2 border-red-400 p-4 rounded">

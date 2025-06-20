@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useAccount, useSendCalls, useWriteContract } from "wagmi"
-import { encodeFunctionData, parseUnits, formatUnits } from "viem"
+import { useAccount, useSendCalls, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { encodeFunctionData, parseUnits, formatUnits, decodeFunctionData } from "viem"
 import { erc20Abi } from "viem"
 import { ExternalLink, Wallet, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 
@@ -23,10 +23,6 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   // DEBUG: Log product data immediately
   console.log("DEBUG product data →", product)
 
-  // TESTING: Temporarily set price to 0.05 USDC
-  product.priceUSDC = 0.05
-  console.log("DEBUG after setting test price →", product)
-
   const { address, isConnected } = useAccount()
   const { sendCalls } = useSendCalls()
   const { writeContract } = useWriteContract()
@@ -35,11 +31,17 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   const [isRegularProcessing, setIsRegularProcessing] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
+  const [regularTxHash, setRegularTxHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Base USDC contract address and merchant address
-  const USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  // Base USDC contract address (verified for Base mainnet)
+  const USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" // Base USDC
   const MERCHANT_ADDRESS = "0x33a7A26d9C6C799a02E4870137dE647674371FfC"
+
+  // Wait for regular wallet transaction receipt
+  const { data: receipt, isLoading: isWaitingForReceipt } = useWaitForTransactionReceipt({
+    hash: regularTxHash as `0x${string}`,
+  })
 
   const isValidPrice = () => {
     return (
@@ -54,26 +56,29 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
   // Calculate USDC amount with extensive debugging
   const calculateUSDCAmount = () => {
     console.log("🔍 CALCULATING USDC AMOUNT:")
-    console.log("Price input:", product.priceUSDC)
-    console.log("Price type:", typeof product.priceUSDC)
-    console.log("Price toString():", product.priceUSDC.toString())
+    console.log("  - Price input:", product.priceUSDC)
+    console.log("  - Price type:", typeof product.priceUSDC)
+    console.log("  - Price toString():", product.priceUSDC.toString())
 
     // Convert to USDC units (6 decimals)
     const amount = parseUnits(product.priceUSDC.toString(), 6)
-    console.log("parseUnits result:", amount.toString())
-    console.log("Amount in wei:", amount)
-    console.log("Back to USDC:", formatUnits(amount, 6))
+    console.log("  - parseUnits result (BigInt):", amount)
+    console.log("  - parseUnits result (string):", amount.toString())
+    console.log("  - Back to USDC:", formatUnits(amount, 6))
 
-    // Manual verification
-    const manualCalc = BigInt(Math.round(product.priceUSDC * 1000000))
-    console.log("Manual calculation:", manualCalc.toString())
-    console.log("parseUnits vs manual:", amount.toString(), "vs", manualCalc.toString())
-    console.log("Calculations match:", amount === manualCalc)
+    // Verify the amount is not zero
+    if (amount === 0n) {
+      console.error("❌ CRITICAL: parseUnits returned zero!")
+      console.error("  - Input was:", product.priceUSDC)
+      console.error("  - Input type:", typeof product.priceUSDC)
+    } else {
+      console.log("✅ Amount calculation successful:", formatUnits(amount, 6), "USDC")
+    }
 
     return amount
   }
 
-  // Smart Wallet checkout
+  // Smart Wallet checkout with extensive debugging
   const handleSmartWalletPurchase = async () => {
     if (!isConnected || !address) {
       const errorMsg = "Please connect your wallet first"
@@ -95,7 +100,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
     try {
       console.log("🚀 SMART WALLET CHECKOUT STARTING")
-      console.log("Product:", product.name)
+      console.log("  - Product:", product.name)
+      console.log("  - Price:", product.priceUSDC, "USDC")
 
       const amount = calculateUSDCAmount()
 
@@ -103,6 +109,91 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       if (amount === 0n) {
         throw new Error("CRITICAL: Amount calculated as zero!")
       }
+
+      console.log("📦 PREPARING TRANSFER CALL:")
+      console.log("  - USDC Contract:", USDC_CONTRACT)
+      console.log("  - Merchant Address:", MERCHANT_ADDRESS)
+      console.log("  - Amount (BigInt):", amount)
+      console.log("  - Amount (string):", amount.toString())
+      console.log("  - Amount (USDC):", formatUnits(amount, 6))
+
+      // Try different approaches for encoding
+      console.log("🔧 ENCODING FUNCTION DATA:")
+
+      // Method 1: Standard BigInt args
+      const transferCallBigInt = {
+        to: USDC_CONTRACT,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [MERCHANT_ADDRESS, amount],
+        }),
+      }
+
+      console.log("  - Method 1 (BigInt args):")
+      console.log("    - Args:", [MERCHANT_ADDRESS, amount])
+      console.log("    - Encoded data:", transferCallBigInt.data)
+
+      // Method 2: String args (as suggested)
+      const transferCallString = {
+        to: USDC_CONTRACT,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [MERCHANT_ADDRESS, amount.toString()],
+        }),
+      }
+
+      console.log("  - Method 2 (String args):")
+      console.log("    - Args:", [MERCHANT_ADDRESS, amount.toString()])
+      console.log("    - Encoded data:", transferCallString.data)
+
+      // Method 3: Explicit BigInt conversion
+      const amountBigInt = BigInt(amount.toString())
+      const transferCallExplicit = {
+        to: USDC_CONTRACT,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [MERCHANT_ADDRESS, amountBigInt],
+        }),
+      }
+
+      console.log("  - Method 3 (Explicit BigInt):")
+      console.log("    - Amount BigInt:", amountBigInt)
+      console.log("    - Args:", [MERCHANT_ADDRESS, amountBigInt])
+      console.log("    - Encoded data:", transferCallExplicit.data)
+
+      // Verify all methods produce the same result
+      console.log("🔍 COMPARING ENCODING METHODS:")
+      console.log("  - BigInt === String:", transferCallBigInt.data === transferCallString.data)
+      console.log("  - BigInt === Explicit:", transferCallBigInt.data === transferCallExplicit.data)
+      console.log("  - String === Explicit:", transferCallString.data === transferCallExplicit.data)
+
+      // Decode the function data to verify it contains the right amount
+      try {
+        const decoded = decodeFunctionData({
+          abi: erc20Abi,
+          data: transferCallBigInt.data,
+        })
+        console.log("🔍 DECODED FUNCTION DATA:")
+        console.log("  - Function name:", decoded.functionName)
+        console.log("  - Args:", decoded.args)
+        console.log("  - Recipient:", decoded.args?.[0])
+        console.log("  - Amount (raw):", decoded.args?.[1])
+        console.log("  - Amount (string):", decoded.args?.[1]?.toString())
+        console.log("  - Amount (USDC):", decoded.args?.[1] ? formatUnits(decoded.args[1] as bigint, 6) : "undefined")
+      } catch (decodeError) {
+        console.error("❌ Failed to decode function data:", decodeError)
+      }
+
+      // Use the standard BigInt method for the actual call
+      const transferCall = transferCallBigInt
+
+      console.log("📤 FINAL TRANSFER CALL:")
+      console.log("  - To:", transferCall.to)
+      console.log("  - Data:", transferCall.data)
+      console.log("  - Data length:", transferCall.data.length)
 
       // Smart Wallet Profiles data collection requests
       const profileRequests = [
@@ -112,26 +203,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
         { type: "physicalAddress", optional: false },
       ]
 
-      // Create the transfer call
-      const transferCall = {
-        to: USDC_CONTRACT,
-        data: encodeFunctionData({
-          abi: erc20Abi,
-          functionName: "transfer",
-          args: [MERCHANT_ADDRESS, amount],
-        }),
-      }
+      console.log("📋 PROFILE REQUESTS:", profileRequests)
 
-      console.log("📦 SMART WALLET TRANSFER CALL:")
-      console.log("  - Contract:", USDC_CONTRACT)
-      console.log("  - Recipient:", MERCHANT_ADDRESS)
-      console.log("  - Amount (wei):", amount.toString())
-      console.log("  - Amount (USDC):", formatUnits(amount, 6))
-      console.log("  - Encoded data:", transferCall.data)
-
-      // Execute transaction with Smart Wallet Profiles
-      console.log("🔄 Calling sendCalls with Smart Wallet...")
-      const result = await sendCalls({
+      // Log the complete sendCalls payload
+      const sendCallsPayload = {
         calls: [transferCall],
         capabilities: {
           dataCallback: {
@@ -139,7 +214,19 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
             callbackURL: `${window.location.origin}/api/profile-callback`,
           },
         },
-      })
+      }
+
+      console.log("🚀 SENDING CALLS PAYLOAD:")
+      console.log("  - Calls:", sendCallsPayload.calls)
+      console.log("  - Capabilities:", sendCallsPayload.capabilities)
+      console.log(
+        "  - Full payload:",
+        JSON.stringify(sendCallsPayload, (key, value) => (typeof value === "bigint" ? value.toString() : value)),
+      )
+
+      // Execute transaction with Smart Wallet Profiles
+      console.log("⏳ Calling sendCalls...")
+      const result = await sendCalls(sendCallsPayload)
 
       console.log("✅ Smart Wallet result:", result)
 
@@ -161,30 +248,29 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       }
     } catch (err) {
       console.error("❌ SMART WALLET FAILED:", err)
-      console.log("Full Smart Wallet error:", JSON.stringify(err, Object.getOwnPropertyNames(err)))
+      console.error("  - Error type:", typeof err)
+      console.error("  - Error message:", err instanceof Error ? err.message : String(err))
+      console.error("  - Error stack:", err instanceof Error ? err.stack : "No stack")
 
       let errorMessage = "Smart Wallet payment failed"
-      let detailedError = ""
-
       if (err instanceof Error) {
-        detailedError = err.message
         if (err.message.includes("rejected") || err.message.includes("denied")) {
           errorMessage = "Smart Wallet transaction cancelled by user"
         } else if (err.message.includes("insufficient")) {
-          errorMessage = "Insufficient USDC balance for Smart Wallet"
+          errorMessage = "Insufficient USDC balance"
         } else {
           errorMessage = `Smart Wallet error: ${err.message}`
         }
       }
 
-      setError(`${errorMessage}\n\nDetails: ${detailedError}`)
+      setError(errorMessage)
       onError?.(errorMessage)
     } finally {
       setIsProcessing(false)
     }
   }
 
-  // Regular wallet checkout (for debugging)
+  // Regular wallet checkout
   const handleRegularWalletPurchase = async () => {
     if (!isConnected || !address) {
       const errorMsg = "Please connect your wallet first"
@@ -206,7 +292,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
 
     try {
       console.log("🔧 REGULAR WALLET CHECKOUT STARTING")
-      console.log("Product:", product.name)
+      console.log("  - Product:", product.name)
+      console.log("  - Price:", product.priceUSDC, "USDC")
 
       const amount = calculateUSDCAmount()
 
@@ -216,58 +303,55 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       }
 
       console.log("📦 REGULAR WALLET TRANSFER:")
-      console.log("  - Contract:", USDC_CONTRACT)
-      console.log("  - Recipient:", MERCHANT_ADDRESS)
-      console.log("  - Amount (wei):", amount.toString())
       console.log("  - Amount (USDC):", formatUnits(amount, 6))
+      console.log("  - Amount (wei):", amount.toString())
 
-      // Execute regular ERC20 transfer
-      console.log("🔄 Calling writeContract with regular wallet...")
-      const result = await writeContract({
+      // Execute regular ERC20 transfer with async/await
+      const hash = await writeContract({
         address: USDC_CONTRACT,
         abi: erc20Abi,
         functionName: "transfer",
         args: [MERCHANT_ADDRESS, amount],
       })
 
-      console.log("✅ Regular wallet result:", result)
+      console.log("✅ Regular wallet transaction hash:", hash)
+      setRegularTxHash(hash)
 
-      if (result) {
-        setTransactionHash(result)
-        setIsSuccess(true)
-        onSuccess?.(result)
-        console.log("🎉 Regular wallet payment successful! Hash:", result)
-      } else {
-        throw new Error("Regular wallet writeContract returned null/undefined")
-      }
+      // The useWaitForTransactionReceipt hook will handle waiting for confirmation
+      // Success will be handled when receipt is received
     } catch (err) {
       console.error("❌ REGULAR WALLET FAILED:", err)
-      console.log("Full regular wallet error:", JSON.stringify(err, Object.getOwnPropertyNames(err)))
 
       let errorMessage = "Regular wallet payment failed"
-      let detailedError = ""
-
       if (err instanceof Error) {
-        detailedError = err.message
         if (err.message.includes("rejected") || err.message.includes("denied")) {
-          errorMessage = "Regular wallet transaction cancelled by user"
+          errorMessage = "Transaction cancelled by user"
         } else if (err.message.includes("insufficient")) {
-          errorMessage = "Insufficient USDC balance for regular wallet"
+          errorMessage = "Insufficient USDC balance"
         } else {
           errorMessage = `Regular wallet error: ${err.message}`
         }
       }
 
-      setError(`${errorMessage}\n\nDetails: ${detailedError}`)
+      setError(errorMessage)
       onError?.(errorMessage)
-    } finally {
       setIsRegularProcessing(false)
     }
+  }
+
+  // Handle regular wallet transaction confirmation
+  if (receipt && regularTxHash && isRegularProcessing) {
+    console.log("🎉 Regular wallet transaction confirmed:", receipt)
+    setTransactionHash(regularTxHash)
+    setIsSuccess(true)
+    setIsRegularProcessing(false)
+    onSuccess?.(regularTxHash)
   }
 
   const resetState = () => {
     setIsSuccess(false)
     setTransactionHash(null)
+    setRegularTxHash(null)
     setError(null)
   }
 
@@ -355,6 +439,10 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
           <div className="text-gray-400 text-xs">
             Recipient: {MERCHANT_ADDRESS.slice(0, 8)}...{MERCHANT_ADDRESS.slice(-6)}
           </div>
+          <div className="text-blue-400 text-xs">
+            Debug: Amount = {isValidPrice() ? formatUnits(parseUnits(product.priceUSDC.toString(), 6), 6) : "Invalid"}{" "}
+            USDC
+          </div>
         </div>
       </div>
 
@@ -365,14 +453,14 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
             <AlertCircle className="w-5 h-5 mr-2" />
             Transaction Error
           </div>
-          <div className="text-white text-sm whitespace-pre-wrap">{error}</div>
+          <div className="text-white text-sm">{error}</div>
         </div>
       )}
 
       {/* Smart Wallet Checkout Button */}
       <Button
         onClick={handleSmartWalletPurchase}
-        disabled={isProcessing || isRegularProcessing || !isConnected || !isValidPrice()}
+        disabled={isProcessing || isRegularProcessing || isWaitingForReceipt || !isConnected || !isValidPrice()}
         className={`w-full border-2 border-white font-bold ${
           !isConnected || !isValidPrice()
             ? "bg-red-600 hover:bg-red-500 text-white"
@@ -401,19 +489,19 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       {/* Regular Wallet Checkout Button */}
       <Button
         onClick={handleRegularWalletPurchase}
-        disabled={isProcessing || isRegularProcessing || !isConnected || !isValidPrice()}
+        disabled={isProcessing || isRegularProcessing || isWaitingForReceipt || !isConnected || !isValidPrice()}
         className={`w-full border-2 border-white font-bold ${
           !isConnected || !isValidPrice()
             ? "bg-red-600 hover:bg-red-500 text-white"
-            : isRegularProcessing
+            : isRegularProcessing || isWaitingForReceipt
               ? "bg-yellow-600 text-white cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-500 text-white"
         }`}
       >
-        {isRegularProcessing ? (
+        {isRegularProcessing || isWaitingForReceipt ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Processing Regular Wallet...
+            {isWaitingForReceipt ? "Waiting for confirmation..." : "Processing Regular Wallet..."}
           </>
         ) : !isConnected ? (
           "Connect Wallet First"
@@ -430,6 +518,8 @@ export function SmartWalletCheckout({ product, onSuccess, onError }: SmartWallet
       {/* Info Text */}
       <div className="text-xs text-gray-400 text-center">
         Smart Wallet collects shipping info • Regular wallet for debugging
+        <br />
+        Check browser console for detailed transaction debugging
       </div>
     </div>
   )

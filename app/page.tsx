@@ -10,9 +10,10 @@ import Image from "next/image"
 import { SmartWalletProfileModal } from "@/components/smart-wallet-profile-modal"
 import { CheckoutModal } from "@/components/checkout-modal"
 import { CryptoTicker } from "@/components/crypto-ticker"
-import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { RainbowWalletButton } from "@/components/rainbow-wallet-button"
 import { CartModal } from "@/components/cart-modal"
 import { useCart } from "@/contexts/cart-context"
+import { WalletConnectionStatus } from "@/components/wallet-connection-status"
 
 interface Product {
   id: string
@@ -29,7 +30,7 @@ interface Product {
 export default function OKBANKRShop() {
   const { address, isConnected } = useAccount()
   const { state: cartState, addToCart } = useCart()
-  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showProfileModal, setShowSmartWalletProfileModal] = useState(false)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [showCartModal, setShowCartModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -171,7 +172,7 @@ export default function OKBANKRShop() {
 
     // Check if user has profile
     if (!userProfile) {
-      setShowProfileModal(true)
+      setShowSmartWalletProfileModal(true)
     } else {
       setShowCheckoutModal(true)
     }
@@ -203,7 +204,7 @@ export default function OKBANKRShop() {
       if (firstItem.priceUSDC && firstItem.priceUSDC > 0) {
         setSelectedProduct(firstItem)
         if (!userProfile) {
-          setShowProfileModal(true)
+          setShowSmartWalletProfileModal(true)
         } else {
           setShowCheckoutModal(true)
         }
@@ -358,7 +359,7 @@ export default function OKBANKRShop() {
 
         {/* Wallet and Cart buttons - top right */}
         <div className="absolute top-4 right-4 flex gap-3">
-          <WalletConnectButton />
+          <RainbowWalletButton />
 
           <Button
             onClick={() => {
@@ -414,6 +415,11 @@ export default function OKBANKRShop() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12 bg-yellow-400">
+        {/* Wallet Connection Status */}
+        <div className="mb-8">
+          <WalletConnectionStatus />
+        </div>
+
         {/* Product Categories */}
         <div id="tees">
           <CategorySection
@@ -484,10 +490,10 @@ export default function OKBANKRShop() {
 
       <SmartWalletProfileModal
         isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
+        onClose={() => setShowSmartWalletProfileModal(false)}
         onProfileComplete={(profile) => {
           setUserProfile(profile)
-          setShowProfileModal(false)
+          setShowSmartWalletProfileModal(false)
           if (selectedProduct) {
             setShowCheckoutModal(true)
           }
