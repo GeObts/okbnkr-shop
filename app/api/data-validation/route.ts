@@ -63,7 +63,7 @@ Order Time: ${new Date().toLocaleString()}
         },
         body: JSON.stringify({
           from: "onboarding@resend.dev",
-          to: "basednouns@protonmail.com",
+          to: "onboarding@resend.dev",
           subject: "New Order – OKBNKR SHOP",
           text: emailBody,
         }),
@@ -83,10 +83,10 @@ Order Time: ${new Date().toLocaleString()}
     }
 
     // Always return success to prevent getting stuck
-    return NextResponse.json({ status: "ok" }, { status: 200 })
+    return NextResponse.json({ status: "ok" })
   } catch (error) {
     console.error("Data validation error:", error)
     // Even on error, return ok to prevent getting stuck
-    return NextResponse.json({ status: "ok" }, { status: 200 })
+    return NextResponse.json({ status: "ok" })
   }
 }
